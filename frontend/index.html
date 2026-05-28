@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>Delifood B2B</title>
+</head>
+<body class="container mt-5">
+    <div id="login-section">
+        <h3>Login Delifood</h3>
+        <input id="user" type="text" placeholder="Usuario" class="form-control mb-2">
+        <input id="pass" type="password" placeholder="Password" class="form-control mb-2">
+        <button onclick="login()" class="btn btn-primary">Entrar</button>
+    </div>
+
+    <div id="app-section" style="display:none;">
+        <h2 id="welcome"></h2>
+        <div id="cliente-form" class="mb-4" style="display:none;">
+            <h4>Nuevo Pedido</h4>
+            <input id="restaurante" placeholder="Restaurante" class="form-control mb-2">
+            <input id="producto" placeholder="Producto" class="form-control mb-2">
+            <input id="cantidad" type="number" placeholder="Cantidad" class="form-control mb-2">
+            <button onclick="crearPedido()" class="btn btn-success">Enviar Pedido</button>
+        </div>
+        
+        <h4>Listado de Pedidos</h4>
+        <table class="table">
+            <thead><tr><th>Restaurante</th><th>Producto</th><th>Cant.</th><th>Estado</th><th>Acción</th></tr></thead>
+            <tbody id="tabla-pedidos"></tbody>
+        </table>
+    </div>
+
+    <script>
+        let currentUser = null;
+        const API = "http://localhost:3000";
+
+        async function login() {
+            const user = document.getElementById('user').value;
+            const pass = document.getElementById('pass').value;
+            const res = await fetch(`${API}/login`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({user, pass})
+            });
+            if(res.ok) {
+                currentUser = await res.json();
+                document.getElementById('login-section').style.display = 'none';
+                document.getElementById('app-section').style.display = 'block';
+                if(currentUser.role === 'cliente') document.getElementById('cliente-form').style.display = 'block';
+                cargarPedidos();
+            } else { alert("Datos incorrectos"); }
+        }
+
+        async function cargarPedidos() {
+            const res = await fetch(`${API}/pedidos`);
+            const data = await res.json();
+            const tabla = document.getElementById('tabla-pedidos');
+            tabla.innerHTML = "";
+            data.forEach(p => {
+                tabla.innerHTML += `
+                    <tr>
+                        <td>${p.restaurante}</td>
+                        <td>${p.producto}</td>
+                        <td>${p.cantidad}</td>
+                        <td><span class="badge ${p.estado === 'Pendiente' ? 'bg-warning' : 'bg-success'}">${p.estado}</span></td>
+                        <td>${currentUser.role === 'admin' && p.estado === 'Pendiente' ? `<button onclick="completar(${p.id})" class="btn btn-sm btn-info">Listo</button>` : ''}</td>
+                    </tr>`;
+            });
+        }
+
+        async function crearPedido() {
+            const restaurante = document.getElementById('restaurante').value;
+            const producto = document.getElementById('producto').value;
+            const cantidad = document.getElementById('cantidad').value;
+            await fetch(`${API}/pedidos`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({restaurante, producto, cantidad})
+            });
+            cargarPedidos();
+        }
+
+        async function completar(id) {
+            await fetch(`${API}/pedidos/${id}`, { method: 'PUT' });
+            cargarPedidos();
+        }
+    </script>
+</body>
+</html>
